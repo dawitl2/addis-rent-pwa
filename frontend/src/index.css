@@ -1,0 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --color-white: #ffffff;
+  --color-cream: #fff8f3;
+  --color-tan: #dbc2b3;
+  --color-soft-tan: #f1e2da;
+  --color-brown: #2b1b12;
+  --color-gold: #f4a21e;
+  --image-empty: #f3e8e1;
+  --shadow-soft: 0 18px 45px rgba(58, 34, 23, 0.12);
+  --shadow-card: 0 14px 32px rgba(58, 34, 23, 0.13);
+
+  color: var(--color-brown);
+  background: var(--color-white);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--color-white);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
+}
+
+button:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgba(244, 162, 30, 0.75);
+  outline-offset: 3px;
+}
+
+img {
+  max-width: 100%;
+}
+
+#root {
+  min-height: 100vh;
+}

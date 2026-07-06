@@ -1940,7 +1940,7 @@ function App() {
   const [highlightedPropertyId, setHighlightedPropertyId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [authDialogOpen, setAuthDialogOpen] = useState(Boolean(initialRoute.authMode))
+  const [authDialogOpen, setAuthDialogOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>(initialRoute.authMode ?? 'signup')
   const [authForm, setAuthForm] = useState<AuthForm>({
     name: '',
@@ -1975,7 +1975,7 @@ function App() {
       setActivePage(route.page)
       setSelectedPropertyId(route.propertyId ?? null)
       setSelectedAgentId(route.agentId ?? null)
-      if (route.authMode) {
+      if (route.authMode && dataMode === 'postgres') {
         setAuthMode(route.authMode)
         setAuthDialogOpen(true)
       } else {
@@ -1985,7 +1985,7 @@ function App() {
 
     window.addEventListener('popstate', syncRoute)
     return () => window.removeEventListener('popstate', syncRoute)
-  }, [])
+  }, [dataMode])
 
   useEffect(() => {
     if (selectedAgentId) {
@@ -2305,7 +2305,11 @@ function App() {
   }
 
   const signIn = () => {
-    openAuthDialog('signup')
+    if (dataMode === 'postgres') {
+      openAuthDialog('signup')
+      return
+    }
+    completeDemoSignIn()
   }
 
   const completeDemoSignIn = () => {

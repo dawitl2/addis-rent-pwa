@@ -471,7 +471,7 @@ select {
 
 .hero-content {
   display: grid;
-  grid-template-columns: 440px minmax(0, 1fr);
+  grid-template-columns: 420px minmax(0, 1fr);
   align-items: center;
   width: min(1280px, calc(100% - 120px));
   margin: 22px auto 0;
@@ -543,13 +543,14 @@ select {
 
 .hero-house {
   justify-self: end;
-  width: min(830px, 61vw);
-  height: 540px;
+  width: min(930px, 66vw);
+  height: 585px;
   background: transparent;
 }
 
 .hero-house img {
   object-fit: contain;
+
 }
 
 .filter-panel {
@@ -1697,9 +1698,9 @@ select {
   }
 
   .hero-house {
-    width: 620px;
-    height: 450px;
-    margin-right: -70px;
+    width: 720px;
+    height: 500px;
+    margin-right: -110px;
   }
 
   .filter-panel {

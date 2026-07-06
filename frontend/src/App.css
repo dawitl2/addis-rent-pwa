@@ -200,6 +200,225 @@ select {
   font-weight: 850;
 }
 
+.data-mode-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(360px, calc(100% - 44px));
+  padding: 12px 12px 12px 16px;
+  border: 1px solid rgba(43, 27, 18, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 44px rgba(58, 34, 23, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.data-mode-panel div {
+  display: grid;
+  min-width: 0;
+}
+
+.data-mode-panel span,
+.data-mode-panel small {
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(43, 27, 18, 0.58);
+}
+
+.data-mode-panel strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.data-mode-panel small {
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.api-status.connected {
+  color: #35724b;
+}
+
+.api-status.loading {
+  color: #9a671c;
+}
+
+.api-status.error {
+  color: #a13f32;
+}
+
+.data-mode-panel > button:not(.refresh-source) {
+  position: relative;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #dbc2b3;
+  padding: 4px;
+}
+
+.data-mode-panel > button:not(.refresh-source) span {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-white);
+  box-shadow: 0 6px 14px rgba(58, 34, 23, 0.2);
+  transition: transform 180ms ease;
+}
+
+.data-mode-panel > button:not(.refresh-source).active {
+  background: var(--color-brown);
+}
+
+.data-mode-panel > button:not(.refresh-source).active span {
+  transform: translateX(24px);
+}
+
+.refresh-source {
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(43, 27, 18, 0.08);
+  color: var(--color-brown);
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(43, 27, 18, 0.34);
+  backdrop-filter: blur(10px);
+}
+
+.auth-dialog,
+.confirm-dialog {
+  width: min(520px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 94% 8%, rgba(244, 162, 30, 0.18), transparent 25%),
+    #fff7f1;
+  box-shadow: 0 28px 80px rgba(43, 27, 18, 0.28);
+}
+
+.auth-dialog {
+  display: grid;
+  gap: 15px;
+  padding: 30px;
+}
+
+.confirm-dialog {
+  padding: 32px;
+}
+
+.auth-dialog h2,
+.confirm-dialog h2 {
+  margin: 0;
+  color: var(--color-brown);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.auth-dialog p,
+.confirm-dialog p {
+  margin: 12px 0 0;
+  color: #5f473b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.auth-dialog label {
+  display: grid;
+  gap: 8px;
+  color: #5f473b;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.auth-dialog input,
+.auth-dialog select {
+  width: 100%;
+  height: 48px;
+  border: 1px solid rgba(43, 27, 18, 0.08);
+  border-radius: 14px;
+  background: #fffaf7;
+  color: var(--color-brown);
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.form-error {
+  margin: 0;
+  color: #a13f32;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.dialog-actions button,
+.auth-mode-link {
+  border: 0;
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.dialog-actions button {
+  height: 44px;
+  padding: 0 18px;
+}
+
+.dialog-actions button:first-child {
+  background: rgba(43, 27, 18, 0.08);
+  color: var(--color-brown);
+}
+
+.dialog-actions button:last-child {
+  background: var(--color-brown);
+  color: var(--color-white);
+}
+
+.auth-mode-link {
+  width: fit-content;
+  background: transparent;
+  color: #7c5c4d;
+  padding: 0;
+  font-size: 12px;
+  text-align: left;
+}
+
+.save-button.secondary {
+  width: 100%;
+  margin-top: 4px;
+  background: rgba(43, 27, 18, 0.08);
+  color: var(--color-brown);
+}
+
 .signup-button,
 .hero-copy button,
 .residence-actions button,
@@ -244,7 +463,7 @@ select {
 
 .hero-section {
   position: relative;
-  min-height: 820px;
+  min-height: 690px;
   background:
     radial-gradient(circle at 75% 20%, rgba(244, 162, 30, 0.14), transparent 26%),
     linear-gradient(180deg, #fff8f3 0, #fff3ec 100%);
@@ -252,10 +471,10 @@ select {
 
 .hero-content {
   display: grid;
-  grid-template-columns: 470px minmax(0, 1fr);
+  grid-template-columns: 440px minmax(0, 1fr);
   align-items: center;
   width: min(1280px, calc(100% - 120px));
-  margin: 68px auto 0;
+  margin: 22px auto 0;
 }
 
 .hero-copy {
@@ -294,7 +513,7 @@ select {
 
 .hero-copy p {
   max-width: 420px;
-  margin: 32px 0 28px;
+  margin: 22px 0 24px;
 }
 
 .hero-copy button {
@@ -324,7 +543,8 @@ select {
 
 .hero-house {
   justify-self: end;
-
+  width: min(830px, 61vw);
+  height: 540px;
   background: transparent;
 }
 
@@ -1603,6 +1823,38 @@ select {
     width: 100%;
     height: 36px;
     margin-bottom: 8px;
+  }
+
+  .data-mode-panel {
+    right: 14px;
+    bottom: 14px;
+    max-width: calc(100% - 28px);
+    padding: 10px 10px 10px 13px;
+    border-radius: 16px;
+  }
+
+  .data-mode-panel small {
+    max-width: 174px;
+  }
+
+  .dialog-backdrop {
+    padding: 18px;
+  }
+
+  .auth-dialog,
+  .confirm-dialog {
+    border-radius: 22px;
+    padding: 22px;
+  }
+
+  .auth-dialog h2,
+  .confirm-dialog h2 {
+    font-size: 25px;
+  }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .hero-section {

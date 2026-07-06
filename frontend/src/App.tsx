@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -31,6 +31,16 @@ import './App.css'
 const imagePath = '/images/'
 
 type Page = 'home' | 'properties' | 'agents' | 'contact'
+type DataMode = 'demo' | 'postgres'
+type ApiStatus = 'idle' | 'loading' | 'connected' | 'error'
+type AuthMode = 'signin' | 'signup'
+
+type ConfirmAction = {
+  title: string
+  message: string
+  confirmLabel: string
+  onConfirm: () => void | Promise<void>
+}
 
 type Property = {
   id: number
@@ -45,8 +55,10 @@ type Property = {
   status: 'Available' | 'Sold'
   owner: 'demo' | 'user'
   image: string
+  images?: string[]
   description: string
-  agentId: number
+  agentId: number | null
+  listedByUserId?: number | null
 }
 
 type Agent = {
@@ -70,6 +82,7 @@ type Profile = {
 }
 
 const birrFormatter = new Intl.NumberFormat('en-US')
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
 
 const baseProperties: Property[] = [
   {
@@ -314,6 +327,238 @@ function OptionalImage({
       ) : null}
     </span>
   )
+}
+
+async function apiRequest<T>(path: string, options: RequestInit = {}) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  if (!response.ok) {
+    let message = 'Postgres API request failed'
+    try {
+      const body = await response.json()
+      message = body.error ?? message
+    } catch {
+      message = response.statusText || message
+    }
+    throw new Error(message)
+  }
+
+  if (response.status === 204) {
+    return undefined as T
+  }
+
+  return (await response.json()) as T
+}
+
+function DataModePanel({
+  dataMode,
+  apiStatus,
+  apiMessage,
+  onChange,
+  onRefresh,
+}: {
+  dataMode: DataMode
+  apiStatus: ApiStatus
+  apiMessage: string
+  onChange: (mode: DataMode) => void
+  onRefresh: () => void
+}) {
+  return (
+    <aside className="data-mode-panel" aria-label="Data source switch">
+      <div>
+        <span>Data source</span>
+        <strong>{dataMode === 'demo' ? 'Demo UI' : 'Postgres API'}</strong>
+        <small className={`api-status ${apiStatus}`}>{apiMessage}</small>
+      </div>
+      <button
+        className={dataMode === 'postgres' ? 'active' : ''}
+        type="button"
+        onClick={() => onChange(dataMode === 'demo' ? 'postgres' : 'demo')}
+        aria-pressed={dataMode === 'postgres'}
+      >
+        <span />
+      </button>
+      {dataMode === 'postgres' ? (
+        <button className="refresh-source" type="button" onClick={onRefresh}>
+          Refresh
+        </button>
+      ) : null}
+    </aside>
+  )
+}
+
+function ConfirmDialog({
+  action,
+  onCancel,
+}: {
+  action: ConfirmAction
+  onCancel: () => void
+}) {
+  const [isWorking, setIsWorking] = useState(false)
+
+  return (
+    <div className="dialog-backdrop" role="dialog" aria-modal="true">
+      <div className="confirm-dialog">
+        <span className="eyebrow">Confirm action</span>
+        <h2>{action.title}</h2>
+        <p>{action.message}</p>
+        <div className="dialog-actions">
+          <button type="button" onClick={onCancel} disabled={isWorking}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isWorking}
+            onClick={async () => {
+              setIsWorking(true)
+              await action.onConfirm()
+              onCancel()
+            }}
+          >
+            {isWorking ? 'Working...' : action.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AuthDialog({
+  mode,
+  form,
+  isPostgres,
+  isSubmitting,
+  error,
+  onChange,
+  onModeChange,
+  onSubmit,
+  onCancel,
+}: {
+  mode: AuthMode
+  form: Profile
+  isPostgres: boolean
+  isSubmitting: boolean
+  error: string
+  onChange: React.Dispatch<React.SetStateAction<Profile>>
+  onModeChange: (mode: AuthMode) => void
+  onSubmit: () => void
+  onCancel: () => void
+}) {
+  const isSignup = mode === 'signup'
+
+  return (
+    <div className="dialog-backdrop" role="dialog" aria-modal="true">
+      <div className="auth-dialog">
+        <div>
+          <span className="eyebrow">{isPostgres ? 'Postgres account' : 'Demo session'}</span>
+          <h2>{isSignup ? 'Create your NOAH profile' : 'Sign in to your NOAH profile'}</h2>
+          <p>
+            {isPostgres
+              ? 'Your contact details will be saved to Postgres and used when you list a property.'
+              : 'Demo mode keeps your session in the browser only.'}
+          </p>
+        </div>
+        <label>
+          Full name
+          <input
+            value={form.name}
+            onChange={(event) => onChange((current) => ({ ...current, name: event.target.value }))}
+          />
+        </label>
+        <label>
+          Email
+          <input
+            type="email"
+            value={form.email}
+            onChange={(event) => onChange((current) => ({ ...current, email: event.target.value }))}
+          />
+        </label>
+        <div className="form-row">
+          <label>
+            Phone
+            <input
+              value={form.phone}
+              onChange={(event) => onChange((current) => ({ ...current, phone: event.target.value }))}
+            />
+          </label>
+          <label>
+            Preferred area
+            <select
+              value={form.preferredArea}
+              onChange={(event) =>
+                onChange((current) => ({ ...current, preferredArea: event.target.value }))
+              }
+            >
+              <option>CCD</option>
+              <option>Bole</option>
+              <option>CMC</option>
+            </select>
+          </label>
+        </div>
+        {error ? <p className="form-error">{error}</p> : null}
+        <div className="dialog-actions">
+          <button type="button" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </button>
+          <button type="button" onClick={onSubmit} disabled={isSubmitting}>
+            {isSubmitting ? 'Saving...' : isSignup ? 'Create profile' : 'Sign in'}
+          </button>
+        </div>
+        <button
+          className="auth-mode-link"
+          type="button"
+          onClick={() => onModeChange(isSignup ? 'signin' : 'signup')}
+        >
+          {isSignup ? 'Already have a profile? Sign in' : 'New here? Create a profile'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function pagePath(page: Page) {
+  if (page === 'home') return '/'
+  return `/${page}`
+}
+
+function readRoute() {
+  const path = window.location.pathname
+
+  if (path === '/login') {
+    return { page: 'home' as Page, authMode: 'signin' as AuthMode }
+  }
+  if (path === '/signup') {
+    return { page: 'home' as Page, authMode: 'signup' as AuthMode }
+  }
+  if (path.startsWith('/properties/')) {
+    return {
+      page: 'properties' as Page,
+      propertyId: Number(path.split('/')[2]) || null,
+    }
+  }
+  if (path.startsWith('/agents/')) {
+    return {
+      page: 'agents' as Page,
+      agentId: Number(path.split('/')[2]) || null,
+    }
+  }
+  if (path === '/properties' || path === '/agents' || path === '/contact') {
+    return { page: path.slice(1) as Page }
+  }
+
+  return { page: 'home' as Page }
+}
+
+function pushPath(path: string) {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path)
+  }
 }
 
 function Logo({ onClick }: { onClick: () => void }) {
@@ -903,6 +1148,7 @@ function PropertiesPage({
 
 function PropertyDetailPage({
   property,
+  agents,
   similarByArea,
   similarByPrice,
   isSignedIn,
@@ -917,6 +1163,7 @@ function PropertyDetailPage({
   onContactAgent,
 }: {
   property: Property
+  agents: Agent[]
   similarByArea: Property[]
   similarByPrice: Property[]
   isSignedIn: boolean
@@ -932,11 +1179,11 @@ function PropertyDetailPage({
 }) {
   const agent = agents.find((item) => item.id === property.agentId) ?? agents[0]
   const gallery = [
-    property.image,
+    ...(property.images?.length ? property.images : [property.image]),
     'residence-photo_1.png',
     'residence-photo_2.png',
     'residence-photo_3.png',
-  ]
+  ].filter(Boolean)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const showPreviousImage = () =>
     setLightboxIndex((current) =>
@@ -1090,8 +1337,10 @@ function SimilarSection({
 }
 
 function AgentsPage({
+  agents,
   selectedAgent,
-  setSelectedAgent,
+  onSelectAgent,
+  onBackToAgents,
   highlightedProperty,
   onNavigate,
   isSignedIn,
@@ -1102,8 +1351,10 @@ function AgentsPage({
   onSignIn,
   properties,
 }: {
+  agents: Agent[]
   selectedAgent: Agent | null
-  setSelectedAgent: (agent: Agent | null) => void
+  onSelectAgent: (agent: Agent) => void
+  onBackToAgents: () => void
   highlightedProperty: Property | null
   onNavigate: (page: Page) => void
   isSignedIn: boolean
@@ -1137,7 +1388,7 @@ function AgentsPage({
           isSearchOpen={isSearchOpen}
           setIsSearchOpen={setIsSearchOpen}
         />
-        <button className="back-button" type="button" onClick={() => setSelectedAgent(null)}>
+        <button className="back-button" type="button" onClick={onBackToAgents}>
           <ArrowLeft size={18} />
           Back to agents
         </button>
@@ -1270,9 +1521,9 @@ function AgentsPage({
             <p>{agent.specialty}</p>
             <div className="agent-rating">
               <Star size={16} fill="#f6c343" strokeWidth={0} />
-              {agent.rating} rating · {agent.deals} deals
+              {agent.rating} rating / {agent.deals} deals
             </div>
-            <button type="button" onClick={() => setSelectedAgent(agent)}>
+            <button type="button" onClick={() => onSelectAgent(agent)}>
               View profile
             </button>
           </article>
@@ -1286,7 +1537,14 @@ function ContactPage({
   profile,
   setProfile,
   properties,
-  setProperties,
+  dataMode,
+  apiStatus,
+  apiMessage,
+  profileUserId,
+  onSaveProfile,
+  onSaveProperty,
+  onTogglePropertyStatus,
+  onDeleteProperty,
   onNavigate,
   isSignedIn,
   searchQuery,
@@ -1298,7 +1556,14 @@ function ContactPage({
   profile: Profile
   setProfile: React.Dispatch<React.SetStateAction<Profile>>
   properties: Property[]
-  setProperties: React.Dispatch<React.SetStateAction<Property[]>>
+  dataMode: DataMode
+  apiStatus: ApiStatus
+  apiMessage: string
+  profileUserId: number | null
+  onSaveProfile: () => Promise<number | null>
+  onSaveProperty: (property: Property, editingId: number | null) => Promise<void>
+  onTogglePropertyStatus: (property: Property) => Promise<void>
+  onDeleteProperty: (property: Property) => Promise<void>
   onNavigate: (page: Page) => void
   isSignedIn: boolean
   searchQuery: string
@@ -1325,7 +1590,12 @@ function ContactPage({
   }
   const [form, setForm] = useState<Property>(emptyForm)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const userProperties = properties.filter((property) => property.owner === 'user')
+  const [isSaving, setIsSaving] = useState(false)
+  const userProperties = properties.filter(
+    (property) =>
+      property.owner === 'user' &&
+      (dataMode === 'demo' || !profileUserId || property.listedByUserId === profileUserId),
+  )
   const handlePropertyImageUpload = (file: File | undefined) => {
     if (!file) {
       return
@@ -1340,24 +1610,29 @@ function ContactPage({
     reader.readAsDataURL(file)
   }
 
-  const saveProperty = () => {
+  const saveProperty = async () => {
+    if (!isSignedIn) {
+      onSignIn()
+      return
+    }
     if (!form.title.trim()) {
       return
     }
-    if (editingId) {
-      setProperties((current) =>
-        current.map((property) =>
-          property.id === editingId ? { ...form, id: editingId, owner: 'user' } : property,
-        ),
+    setIsSaving(true)
+    try {
+      await onSaveProperty(
+        {
+          ...form,
+          owner: 'user',
+          images: form.images?.length ? form.images : [form.image],
+        },
+        editingId,
       )
       setEditingId(null)
-    } else {
-      setProperties((current) => [
-        ...current,
-        { ...form, id: Date.now(), owner: 'user', agentId: 1 },
-      ])
+      setForm(emptyForm)
+    } finally {
+      setIsSaving(false)
     }
-    setForm(emptyForm)
   }
 
   return (
@@ -1376,7 +1651,11 @@ function ContactPage({
         <div>
           <span className="eyebrow">Session dashboard</span>
           <h1>Manage your contact info and properties</h1>
-          <p>Everything here is local UI state for now. It resets when the app refreshes.</p>
+          <p>
+            {dataMode === 'demo'
+              ? 'Demo mode keeps everything in the browser for the showcase.'
+              : `Postgres mode is ${apiStatus === 'connected' ? 'connected' : apiMessage}.`}
+          </p>
         </div>
         {!isSignedIn ? (
           <button type="button" onClick={onSignIn}>
@@ -1418,6 +1697,10 @@ function ContactPage({
               }
             />
           </label>
+          <button className="save-button secondary" type="button" onClick={onSaveProfile}>
+            <CheckCircle2 size={17} />
+            Save contact
+          </button>
         </section>
 
         <section className="dashboard-card">
@@ -1501,9 +1784,9 @@ function ContactPage({
               }
             />
           </label>
-          <button className="save-button" type="button" onClick={saveProperty}>
+          <button className="save-button" type="button" onClick={saveProperty} disabled={isSaving}>
             <Plus size={17} />
-            {editingId ? 'Save changes' : 'Add property'}
+            {isSaving ? 'Saving...' : editingId ? 'Save changes' : 'Add property'}
           </button>
         </section>
       </div>
@@ -1539,27 +1822,14 @@ function ContactPage({
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setProperties((current) =>
-                        current.map((item) =>
-                          item.id === property.id
-                            ? {
-                                ...item,
-                                status: item.status === 'Sold' ? 'Available' : 'Sold',
-                              }
-                            : item,
-                        ),
-                      )
-                    }
+                    onClick={() => void onTogglePropertyStatus(property)}
                   >
                     <CheckCircle2 size={16} />
                     {property.status === 'Sold' ? 'Unsold' : 'Sold'}
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setProperties((current) => current.filter((item) => item.id !== property.id))
-                    }
+                    onClick={() => void onDeleteProperty(property)}
                   >
                     <Trash2 size={16} />
                     Delete
@@ -1589,14 +1859,34 @@ function ContactPage({
 }
 
 function App() {
+  const initialRoute = readRoute()
   const [isSignedIn, setIsSignedIn] = useState(false)
-  const [activePage, setActivePage] = useState<Page>('home')
+  const [activePage, setActivePage] = useState<Page>(initialRoute.page)
   const [properties, setProperties] = useState<Property[]>(baseProperties)
-  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null)
+  const [agentRecords, setAgentRecords] = useState<Agent[]>(agents)
+  const [dataMode, setDataMode] = useState<DataMode>('demo')
+  const [apiStatus, setApiStatus] = useState<ApiStatus>('idle')
+  const [apiMessage, setApiMessage] = useState('Demo mode is active')
+  const [profileUserId, setProfileUserId] = useState<number | null>(null)
+  const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(
+    initialRoute.propertyId ?? null,
+  )
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState<number | null>(initialRoute.agentId ?? null)
   const [highlightedPropertyId, setHighlightedPropertyId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [authDialogOpen, setAuthDialogOpen] = useState(Boolean(initialRoute.authMode))
+  const [authMode, setAuthMode] = useState<AuthMode>(initialRoute.authMode ?? 'signup')
+  const [authForm, setAuthForm] = useState<Profile>({
+    name: '',
+    email: '',
+    phone: '+251 ',
+    preferredArea: 'Bole',
+  })
+  const [authError, setAuthError] = useState('')
+  const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [profile, setProfile] = useState<Profile>({
     name: 'Guest User',
     email: 'guest@example.com',
@@ -1610,6 +1900,190 @@ function App() {
     price: 'All',
     sort: 'Featured',
   })
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const route = readRoute()
+      setActivePage(route.page)
+      setSelectedPropertyId(route.propertyId ?? null)
+      setSelectedAgentId(route.agentId ?? null)
+      if (route.authMode) {
+        setAuthMode(route.authMode)
+        setAuthDialogOpen(true)
+      } else {
+        setAuthDialogOpen(false)
+      }
+    }
+
+    window.addEventListener('popstate', syncRoute)
+    return () => window.removeEventListener('popstate', syncRoute)
+  }, [])
+
+  useEffect(() => {
+    if (selectedAgentId) {
+      setSelectedAgent(agentRecords.find((agent) => agent.id === selectedAgentId) ?? null)
+    } else {
+      setSelectedAgent(null)
+    }
+  }, [agentRecords, selectedAgentId])
+
+  const loadPostgresData = async () => {
+    setApiStatus('loading')
+    setApiMessage('Connecting to Postgres API...')
+    const data = await apiRequest<{
+      properties: Property[]
+      agents: Agent[]
+      users: Array<{ id: number }>
+    }>('/bootstrap')
+    setProperties(data.properties)
+    setAgentRecords(data.agents.length ? data.agents : agents)
+    setApiStatus('connected')
+    setApiMessage('Connected to local Postgres')
+  }
+
+  const changeDataMode = async (mode: DataMode) => {
+    if (mode === 'demo') {
+      setDataMode('demo')
+      setProperties(baseProperties)
+      setAgentRecords(agents)
+      setProfileUserId(null)
+      setApiStatus('idle')
+      setApiMessage('Demo mode is active')
+      return
+    }
+
+    try {
+      await loadPostgresData()
+      setDataMode('postgres')
+    } catch (error) {
+      setDataMode('demo')
+      setApiStatus('error')
+      setApiMessage(error instanceof Error ? error.message : 'Could not reach Postgres API')
+    }
+  }
+
+  const requestDataModeChange = (mode: DataMode) => {
+    setConfirmAction({
+      title: mode === 'postgres' ? 'Connect to Postgres?' : 'Return to demo mode?',
+      message:
+        mode === 'postgres'
+          ? 'This will load properties and agents from the local Postgres backend.'
+          : 'This will replace the current screen data with the built-in demo showcase.',
+      confirmLabel: mode === 'postgres' ? 'Connect' : 'Use demo',
+      onConfirm: () => changeDataMode(mode),
+    })
+  }
+
+  const requestPostgresRefresh = () => {
+    setConfirmAction({
+      title: 'Refresh Postgres data?',
+      message: 'This will reload properties and agents from the database and replace the current UI copy.',
+      confirmLabel: 'Refresh',
+      onConfirm: loadPostgresData,
+    })
+  }
+
+  const saveProfile = async () => {
+    if (dataMode === 'demo') {
+      setApiStatus('idle')
+      setApiMessage('Contact saved in demo state')
+      return null
+    }
+
+    setApiStatus('loading')
+    setApiMessage('Saving contact to Postgres...')
+    try {
+      const user = await apiRequest<Profile & { id: number }>('/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          preferredArea: profile.preferredArea,
+        }),
+      })
+      setProfileUserId(user.id)
+      setApiStatus('connected')
+      setApiMessage('Contact saved to Postgres')
+      return user.id
+    } catch (error) {
+      setApiStatus('error')
+      setApiMessage(error instanceof Error ? error.message : 'Could not save contact')
+      return null
+    }
+  }
+
+  const saveManagedProperty = async (property: Property, editingId: number | null) => {
+    if (dataMode === 'postgres') {
+      const userId = profileUserId ?? (await saveProfile())
+      const payload = {
+        ...property,
+        id: editingId ?? property.id,
+        owner: 'user',
+        agentId: property.agentId ?? agentRecords[0]?.id ?? 1,
+        listedByUserId: userId,
+        images: property.images?.length ? property.images : [property.image],
+      }
+      const saved = await apiRequest<Property>(editingId ? `/properties/${editingId}` : '/properties', {
+        method: editingId ? 'PUT' : 'POST',
+        body: JSON.stringify(payload),
+      })
+      setProperties((current) =>
+        editingId
+          ? current.map((item) => (item.id === editingId ? saved : item))
+          : [...current, saved],
+      )
+      setApiStatus('connected')
+      setApiMessage(editingId ? 'Property updated in Postgres' : 'Property added to Postgres')
+      return
+    }
+
+    if (editingId) {
+      setProperties((current) =>
+        current.map((item) =>
+          item.id === editingId ? { ...property, id: editingId, owner: 'user' } : item,
+        ),
+      )
+    } else {
+      setProperties((current) => [
+        ...current,
+        { ...property, id: Date.now(), owner: 'user', agentId: agentRecords[0]?.id ?? 1 },
+      ])
+    }
+    setApiMessage(editingId ? 'Property updated in demo state' : 'Property added in demo state')
+  }
+
+  const toggleManagedPropertyStatus = async (property: Property) => {
+    const nextStatus = property.status === 'Sold' ? 'Available' : 'Sold'
+    if (dataMode === 'postgres') {
+      const updated = await apiRequest<Property>(`/properties/${property.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      setProperties((current) => current.map((item) => (item.id === property.id ? updated : item)))
+      setApiStatus('connected')
+      setApiMessage(`Property marked ${nextStatus} in Postgres`)
+      return
+    }
+
+    setProperties((current) =>
+      current.map((item) => (item.id === property.id ? { ...item, status: nextStatus } : item)),
+    )
+    setApiMessage(`Property marked ${nextStatus} in demo state`)
+  }
+
+  const deleteManagedProperty = async (property: Property) => {
+    if (dataMode === 'postgres') {
+      await apiRequest<void>(`/properties/${property.id}`, { method: 'DELETE' })
+      setProperties((current) => current.filter((item) => item.id !== property.id))
+      setApiStatus('connected')
+      setApiMessage('Property deleted from Postgres')
+      return
+    }
+
+    setProperties((current) => current.filter((item) => item.id !== property.id))
+    setApiMessage('Property deleted in demo state')
+  }
 
   const filteredProperties = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase()
@@ -1655,32 +2129,95 @@ function App() {
   const navigate = (page: Page) => {
     setActivePage(page)
     setSelectedPropertyId(null)
+    setSelectedAgentId(null)
+    pushPath(pagePath(page))
     if (page !== 'agents') {
       setSelectedAgent(null)
       setHighlightedPropertyId(null)
     }
   }
 
+  const openAuthDialog = (mode: AuthMode = 'signup') => {
+    setAuthMode(mode)
+    setAuthForm(profile)
+    setAuthError('')
+    setAuthDialogOpen(true)
+    pushPath(mode === 'signin' ? '/login' : '/signup')
+  }
+
+  const closeAuthDialog = () => {
+    setAuthDialogOpen(false)
+    setAuthError('')
+    pushPath(pagePath(activePage))
+  }
+
+  const submitAuth = async () => {
+    if (!authForm.name.trim() || !authForm.email.trim()) {
+      setAuthError('Name and email are required.')
+      return
+    }
+
+    setIsAuthSubmitting(true)
+    setAuthError('')
+    try {
+      setProfile(authForm)
+      if (dataMode === 'postgres') {
+        const user = await apiRequest<Profile & { id: number }>('/users', {
+          method: 'POST',
+          body: JSON.stringify(authForm),
+        })
+        setProfileUserId(user.id)
+        setApiStatus('connected')
+        setApiMessage(`${authMode === 'signup' ? 'Profile created' : 'Signed in'} with Postgres`)
+      } else {
+        setApiMessage(`${authMode === 'signup' ? 'Profile created' : 'Signed in'} for demo mode`)
+      }
+      setIsSignedIn(true)
+      setAuthDialogOpen(false)
+      setActivePage('properties')
+      setSelectedPropertyId(null)
+      pushPath('/properties')
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Could not save profile.')
+      setApiStatus('error')
+      setApiMessage(error instanceof Error ? error.message : 'Could not save profile')
+    } finally {
+      setIsAuthSubmitting(false)
+    }
+  }
+
   const signIn = () => {
+    openAuthDialog('signup')
+  }
+
+  const completeDemoSignIn = () => {
     setIsSignedIn(true)
     setActivePage('properties')
     setSelectedPropertyId(null)
+    pushPath('/properties')
   }
 
   const openProperty = (property: Property) => {
     if (!isSignedIn) {
-      signIn()
+      if (dataMode === 'postgres') {
+        openAuthDialog('signup')
+      } else {
+        completeDemoSignIn()
+      }
       return
     }
     setSelectedPropertyId(property.id)
     setActivePage('properties')
+    pushPath(`/properties/${property.id}`)
   }
 
   const contactAgentForProperty = (agent: Agent, property: Property) => {
     setSelectedPropertyId(null)
     setSelectedAgent(agent)
+    setSelectedAgentId(agent.id)
     setHighlightedPropertyId(property.id)
     setActivePage('agents')
+    pushPath(`/agents/${agent.id}`)
   }
 
   let content
@@ -1699,6 +2236,7 @@ function App() {
     content = (
       <PropertyDetailPage
         property={selectedProperty}
+        agents={agentRecords}
         similarByArea={similarByArea.length ? similarByArea : properties.slice(0, 3)}
         similarByPrice={similarByPrice}
         isSignedIn={isSignedIn}
@@ -1706,7 +2244,10 @@ function App() {
         setSearchQuery={setSearchQuery}
         isSearchOpen={isSearchOpen}
         setIsSearchOpen={setIsSearchOpen}
-        onBack={() => setSelectedPropertyId(null)}
+        onBack={() => {
+          setSelectedPropertyId(null)
+          pushPath('/properties')
+        }}
         onOpenProperty={openProperty}
         onNavigate={navigate}
         onSignIn={signIn}
@@ -1716,8 +2257,18 @@ function App() {
   } else if (activePage === 'agents') {
     content = (
       <AgentsPage
+        agents={agentRecords}
         selectedAgent={selectedAgent}
-        setSelectedAgent={setSelectedAgent}
+        onSelectAgent={(agent) => {
+          setSelectedAgent(agent)
+          setSelectedAgentId(agent.id)
+          pushPath(`/agents/${agent.id}`)
+        }}
+        onBackToAgents={() => {
+          setSelectedAgent(null)
+          setSelectedAgentId(null)
+          pushPath('/agents')
+        }}
         highlightedProperty={highlightedProperty}
         onNavigate={navigate}
         isSignedIn={isSignedIn}
@@ -1735,7 +2286,14 @@ function App() {
         profile={profile}
         setProfile={setProfile}
         properties={properties}
-        setProperties={setProperties}
+        dataMode={dataMode}
+        apiStatus={apiStatus}
+        apiMessage={apiMessage}
+        profileUserId={profileUserId}
+        onSaveProfile={saveProfile}
+        onSaveProperty={saveManagedProperty}
+        onTogglePropertyStatus={toggleManagedPropertyStatus}
+        onDeleteProperty={deleteManagedProperty}
         onNavigate={navigate}
         isSignedIn={isSignedIn}
         searchQuery={searchQuery}
@@ -1778,6 +2336,34 @@ function App() {
   return (
     <main id="top" className="page">
       {content}
+      <DataModePanel
+        dataMode={dataMode}
+        apiStatus={apiStatus}
+        apiMessage={apiMessage}
+        onChange={requestDataModeChange}
+        onRefresh={requestPostgresRefresh}
+      />
+      {authDialogOpen ? (
+        <AuthDialog
+          mode={authMode}
+          form={authForm}
+          isPostgres={dataMode === 'postgres'}
+          isSubmitting={isAuthSubmitting}
+          error={authError}
+          onChange={setAuthForm}
+          onModeChange={(mode) => {
+            setAuthMode(mode)
+            pushPath(mode === 'signin' ? '/login' : '/signup')
+          }}
+          onSubmit={() => {
+            void submitAuth()
+          }}
+          onCancel={closeAuthDialog}
+        />
+      ) : null}
+      {confirmAction ? (
+        <ConfirmDialog action={confirmAction} onCancel={() => setConfirmAction(null)} />
+      ) : null}
       <Footer onNavigate={navigate} />
     </main>
   )

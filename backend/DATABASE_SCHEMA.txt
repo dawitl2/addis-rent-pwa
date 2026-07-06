@@ -1,0 +1,148 @@
+NOAH Real Estate Database Schema
+================================
+
+Database name:
+  addis_rent
+
+Connection used locally:
+  postgres://postgres:password@localhost:5432/addis_rent
+
+
+1. users
+--------
+Purpose:
+  Stores simple session/demo users. There is no password/authentication yet.
+
+Columns:
+  id                BIGSERIAL PRIMARY KEY
+  name              TEXT NOT NULL
+  email             TEXT NOT NULL UNIQUE
+  phone             TEXT
+  preferred_area    TEXT
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+
+Relationships:
+  One user can list many properties through properties.listed_by_user_id.
+  One user can create many inquiries through inquiries.user_id.
+
+
+2. agents
+---------
+Purpose:
+  Stores seeded broker/agent profiles. Current UI reads agents but does not create/edit/delete them.
+
+Columns:
+  id                BIGSERIAL PRIMARY KEY
+  name              TEXT NOT NULL
+  area              TEXT NOT NULL
+  specialty         TEXT NOT NULL
+  rating            NUMERIC(2, 1) NOT NULL DEFAULT 5.0
+  deals             INTEGER NOT NULL DEFAULT 0
+  phone             TEXT NOT NULL
+  email             TEXT NOT NULL UNIQUE
+  image             TEXT NOT NULL
+  bio               TEXT NOT NULL
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+
+Relationships:
+  One agent can broker many properties through properties.agent_id.
+  One agent can receive many inquiries through inquiries.agent_id.
+
+
+3. properties
+-------------
+Purpose:
+  Stores houses, villas, and apartments for sale/rent.
+
+Columns:
+  id                BIGSERIAL PRIMARY KEY
+  title             TEXT NOT NULL
+  location          TEXT NOT NULL
+  area              TEXT NOT NULL
+  property_type     TEXT NOT NULL
+  intent            TEXT NOT NULL CHECK ('Buy' or 'Rent')
+  price             NUMERIC(14, 2) NOT NULL
+  rooms             INTEGER NOT NULL
+  size_sqm          INTEGER NOT NULL
+  status            TEXT NOT NULL DEFAULT 'Available' CHECK ('Available' or 'Sold')
+  owner_kind        TEXT NOT NULL DEFAULT 'demo' CHECK ('demo' or 'user')
+  description       TEXT NOT NULL
+  cover_image       TEXT NOT NULL
+  agent_id          BIGINT REFERENCES agents(id) ON DELETE SET NULL
+  listed_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+
+Relationships:
+  Many properties can belong to one agent.
+  Many properties can be listed by one user.
+  One property can have many property_images.
+  One property can have many inquiries.
+
+
+4. property_images
+------------------
+Purpose:
+  Stores gallery images for each property.
+
+Columns:
+  id                BIGSERIAL PRIMARY KEY
+  property_id       BIGINT NOT NULL REFERENCES properties(id) ON DELETE CASCADE
+  image             TEXT NOT NULL
+  sort_order        INTEGER NOT NULL DEFAULT 0
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+
+Relationships:
+  Many property_images belong to one property.
+  Images are deleted automatically if their property is deleted.
+
+
+5. inquiries
+------------
+Purpose:
+  Stores contact/recommendation messages.
+
+Columns:
+  id                BIGSERIAL PRIMARY KEY
+  property_id       BIGINT REFERENCES properties(id) ON DELETE SET NULL
+  agent_id          BIGINT REFERENCES agents(id) ON DELETE SET NULL
+  user_id           BIGINT REFERENCES users(id) ON DELETE SET NULL
+  name              TEXT NOT NULL
+  email             TEXT
+  phone             TEXT
+  message           TEXT NOT NULL
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+
+Relationships:
+  An inquiry can connect a user, a property, and an agent.
+  If a user/property/agent is deleted, the inquiry remains for history and the deleted reference becomes NULL.
+
+
+Indexes
+-------
+  idx_properties_area
+  idx_properties_type
+  idx_properties_intent
+  idx_properties_status
+  idx_properties_agent_id
+  idx_property_images_property_id
+  idx_inquiries_property_id
+  idx_inquiries_agent_id
+
+
+Seed Data
+---------
+The seed script creates:
+  2 demo users
+  10 agents
+  10 properties
+  gallery rows for those properties
+
+Seed command:
+  cd backend
+  npm run db:seed
+
+Alias also supported:
+  npm run devseed

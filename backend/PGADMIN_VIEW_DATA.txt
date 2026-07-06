@@ -1,0 +1,73 @@
+How to View NOAH Data in pgAdmin
+================================
+
+1. Open pgAdmin 4.
+
+2. In the left sidebar, expand:
+   Servers
+
+3. If your local server is already there:
+   Expand PostgreSQL 17.
+
+   If it asks for a password, enter:
+   password
+
+4. If no server is listed:
+   Right-click Servers.
+   Click Register.
+   Click Server.
+
+   General tab:
+     Name: Local Postgres
+
+   Connection tab:
+     Host name/address: localhost
+     Port: 5432
+     Maintenance database: postgres
+     Username: postgres
+     Password: password
+     Save password: on
+
+   Click Save.
+
+5. Expand:
+   Servers
+   Local Postgres or PostgreSQL 17
+   Databases
+   addis_rent
+   Schemas
+   public
+   Tables
+
+6. You should see these tables:
+   users
+   agents
+   properties
+   property_images
+   inquiries
+
+7. To view table rows:
+   Right-click a table, for example properties.
+   Click View/Edit Data.
+   Click All Rows.
+
+8. Useful tables to inspect:
+   agents: the seeded brokers
+   properties: the homes/listings
+   users: profiles created from the app sign-up form
+   property_images: gallery images connected to properties
+   inquiries: contact/recommendation records
+
+9. To refresh after adding data from the app:
+   Right-click the table.
+   Click Refresh.
+   Or close and reopen View/Edit Data > All Rows.
+
+10. To run SQL manually:
+    Click Tools.
+    Click Query Tool.
+    Try:
+
+    SELECT * FROM properties ORDER BY id;
+    SELECT * FROM users ORDER BY id;
+    SELECT * FROM agents ORDER BY id;

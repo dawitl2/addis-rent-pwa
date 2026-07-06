@@ -2,16 +2,11 @@
 
 A TypeScript real-estate prototype for browsing homes, exploring agents, viewing property details, and testing property-management flows.
 
-**Live Demo:** [https://addis-rent-pwa.vercel.app/](https://addis-rent-pwa.vercel.app/)
-
-> Note: the deployed Vercel version runs in demo mode and uses fake/static showcase data. The Postgres mode is included for local backend/database testing, but the public deployment does not connect to a live database.
-
 ## Screenshots
 
 <p align="center">
   <img src="./screenshot1.png" alt="Homepage" width="30%" />
   <img src="./screenshot2.png" alt="Property page" width="30%" />
-  <img src="./screenshot3.png" alt="Dashboard" width="30%" />
 </p>
 
 ## What It Does
@@ -83,6 +78,11 @@ SQL schema:
 Human-readable schema notes:
 
 [backend/DATABASE_SCHEMA.txt](./backend/DATABASE_SCHEMA.txt)
+
+**Live Demo:** [https://addis-rent-pwa.vercel.app/](https://addis-rent-pwa.vercel.app/)
+
+> Note: the deployed Vercel version runs in demo mode and uses fake/static showcase data. The Postgres mode is included for local backend/database testing, but the public deployment does not connect to a live database.
+
 
 The schema includes:
 - `users`

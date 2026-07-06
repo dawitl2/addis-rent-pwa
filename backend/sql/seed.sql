@@ -1,8 +1,8 @@
 TRUNCATE TABLE inquiries, property_images, properties, agents, users RESTART IDENTITY CASCADE;
 
-INSERT INTO users (name, email, phone, preferred_area) VALUES
-  ('Guest User', 'guest@example.com', '+251 900 000 000', 'Bole'),
-  ('Demo Owner', 'owner@example.com', '+251 911 100 200', 'CMC');
+INSERT INTO users (name, username, email, password_hash, phone, preferred_area) VALUES
+  ('Guest User', 'guest', 'guest@example.com', 'scrypt:noah-demo-password:e55c5fe9331f1d7feaf39b45a72ffa1a58c71aab13e08ef227a7fda13d3e5e8d577da8bac6b17b0afcba17461f76aa0271d6d8c72ccb07ff47de43c44ed9e47b', '+251 900 000 000', 'Bole'),
+  ('Demo Owner', 'owner', 'owner@example.com', 'scrypt:noah-demo-password:e55c5fe9331f1d7feaf39b45a72ffa1a58c71aab13e08ef227a7fda13d3e5e8d577da8bac6b17b0afcba17461f76aa0271d6d8c72ccb07ff47de43c44ed9e47b', '+251 911 100 200', 'CMC');
 
 INSERT INTO agents (name, area, specialty, rating, deals, phone, email, image, bio) VALUES
   ('Mekdes Alemu', 'CCD', 'Family Homes', 4.9, 42, '+251 911 234 111', 'mekdes@noah.example', 'avatar_1.png', 'Known for calm negotiation, clear paperwork guidance, and matching families with practical homes.'),

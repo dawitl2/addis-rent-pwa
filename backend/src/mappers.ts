@@ -35,6 +35,7 @@ export type PropertyRow = Record<string, unknown> & {
 export type UserRow = Record<string, unknown> & {
   id: string | number
   name: string
+  username: string
   email: string
   phone: string | null
   preferred_area: string | null
@@ -80,6 +81,7 @@ export function mapUser(row: UserRow): User {
   return {
     id: Number(row.id),
     name: row.name,
+    username: row.username,
     email: row.email,
     phone: row.phone,
     preferredArea: row.preferred_area,

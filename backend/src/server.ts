@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PoolClient } from 'pg'
+import { hashPassword, verifyPassword } from './auth.js'
 import { pool, query } from './db.js'
 import { mapAgent, mapProperty, mapUser, type AgentRow, type PropertyRow, type UserRow } from './mappers.js'
 
@@ -60,26 +61,104 @@ app.get('/api/users', async (_request, response) => {
   response.json(result.rows.map(mapUser))
 })
 
-app.post('/api/users', async (request, response) => {
-  const { name, email, phone = null, preferredArea = null } = request.body
-  if (!name || !email) {
-    response.status(400).json({ error: 'name and email are required' })
+app.post('/api/auth/signup', async (request, response) => {
+  const {
+    name,
+    username,
+    email,
+    phone = null,
+    preferredArea = null,
+    password,
+    confirmPassword,
+  } = request.body
+  const cleanUsername = normalizeUsername(username)
+  const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
+
+  if (!name || !cleanUsername || !cleanEmail || !password || !confirmPassword) {
+    response.status(400).json({ error: 'name, username, email, password, and confirmation are required' })
+    return
+  }
+  if (String(password).length < 6) {
+    response.status(400).json({ error: 'password must be at least 6 characters' })
+    return
+  }
+  if (password !== confirmPassword) {
+    response.status(400).json({ error: 'passwords do not match' })
     return
   }
 
+  const existing = await query<UserRow>(
+    'SELECT * FROM users WHERE lower(username) = $1 OR lower(email) = $2 LIMIT 1',
+    [cleanUsername, cleanEmail],
+  )
+  if (existing.rowCount) {
+    response.status(409).json({ error: 'username or email is already registered' })
+    return
+  }
+
+  const passwordHash = await hashPassword(password)
   const result = await query<UserRow>(
     `
-      INSERT INTO users (name, email, phone, preferred_area)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO users (name, username, email, password_hash, phone, preferred_area)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `,
+    [name, cleanUsername, cleanEmail, passwordHash, phone, preferredArea],
+  )
+  response.status(201).json({ user: mapUser(result.rows[0]) })
+})
+
+app.post('/api/auth/signin', async (request, response) => {
+  const { username, password } = request.body
+  const login = normalizeUsername(username)
+  if (!login || !password) {
+    response.status(400).json({ error: 'username and password are required' })
+    return
+  }
+
+  const result = await query<UserRow & { password_hash: string }>(
+    'SELECT * FROM users WHERE lower(username) = $1 OR lower(email) = $1 LIMIT 1',
+    [login],
+  )
+  if (!result.rowCount) {
+    response.status(401).json({ error: 'No account found for that username or email' })
+    return
+  }
+
+  const isValid = await verifyPassword(password, result.rows[0].password_hash)
+  if (!isValid) {
+    response.status(401).json({ error: 'Incorrect password' })
+    return
+  }
+
+  response.json({ user: mapUser(result.rows[0]) })
+})
+
+app.post('/api/users', async (request, response) => {
+  const { name, username, email, phone = null, preferredArea = null, password } = request.body
+  const cleanUsername = normalizeUsername(username ?? email)
+  const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : ''
+  if (!name || !cleanEmail || !password) {
+    response.status(400).json({ error: 'name, email, and password are required' })
+    return
+  }
+
+  const passwordHash = await hashPassword(password)
+  const result = await query<UserRow>(
+    `
+      INSERT INTO users (name, username, email, password_hash, phone, preferred_area)
+      VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (email)
       DO UPDATE SET
         name = EXCLUDED.name,
+        username = EXCLUDED.username,
+        password_hash = EXCLUDED.password_hash,
         phone = EXCLUDED.phone,
         preferred_area = EXCLUDED.preferred_area,
         updated_at = now()
       RETURNING *
     `,
-    [name, email, phone, preferredArea],
+    [name, cleanUsername, cleanEmail, passwordHash, phone, preferredArea],
   )
   response.status(201).json(mapUser(result.rows[0]))
 })
@@ -421,6 +500,10 @@ async function runSqlFile(fileName: string) {
 
 function stringQuery(value: unknown) {
   return typeof value === 'string' ? value : undefined
+}
+
+function normalizeUsername(value: unknown) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
 }
 
 function getErrorMessage(error: unknown) {

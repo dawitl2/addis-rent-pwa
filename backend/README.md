@@ -23,9 +23,18 @@ The frontend defaults to demo mode, so it can still be deployed as a visual show
 
 Use the floating data-source switch in the UI to connect to Postgres mode. Postgres mode calls the backend API and uses the same property, agent, profile, search, filter, and CRUD screens.
 
+## Auth
+
+Postgres mode uses backend auth endpoints:
+
+- `POST /api/auth/signup` creates a user with `name`, `username`, `email`, `phone`, `preferredArea`, `password`, and `confirmPassword`.
+- `POST /api/auth/signin` checks `username` or `email` plus `password`.
+
+Passwords are hashed with Node's built-in `crypto.scrypt` before they are stored in `users.password_hash`.
+
 ## Table Coordination
 
-- `users` stores session-created visitors/owners. There is no auth yet; email is used as the unique lookup.
+- `users` stores visitors/owners with unique username/email and a hashed password.
 - `agents` stores seeded brokers. The site reads them, but the current UI does not manage them.
 - `properties` stores homes. Each property can point to one `agent_id` and one `listed_by_user_id`.
 - `property_images` stores a one-to-many gallery for each property.

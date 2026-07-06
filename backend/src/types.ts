@@ -37,6 +37,7 @@ export type Property = {
 export type User = {
   id: number
   name: string
+  username: string
   email: string
   phone: string | null
   preferredArea: string | null

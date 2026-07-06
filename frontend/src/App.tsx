@@ -76,9 +76,24 @@ type Agent = {
 
 type Profile = {
   name: string
+  username: string
   email: string
   phone: string
   preferredArea: string
+}
+
+type AuthForm = Profile & {
+  password: string
+  confirmPassword: string
+}
+
+type ApiUser = {
+  id: number
+  name: string
+  username: string
+  email: string
+  phone: string | null
+  preferredArea: string | null
 }
 
 const birrFormatter = new Intl.NumberFormat('en-US')
@@ -441,11 +456,11 @@ function AuthDialog({
   onCancel,
 }: {
   mode: AuthMode
-  form: Profile
+  form: AuthForm
   isPostgres: boolean
   isSubmitting: boolean
   error: string
-  onChange: React.Dispatch<React.SetStateAction<Profile>>
+  onChange: React.Dispatch<React.SetStateAction<AuthForm>>
   onModeChange: (mode: AuthMode) => void
   onSubmit: () => void
   onCancel: () => void
@@ -464,42 +479,87 @@ function AuthDialog({
               : 'Demo mode keeps your session in the browser only.'}
           </p>
         </div>
-        <label>
-          Full name
-          <input
-            value={form.name}
-            onChange={(event) => onChange((current) => ({ ...current, name: event.target.value }))}
-          />
-        </label>
-        <label>
-          Email
-          <input
-            type="email"
-            value={form.email}
-            onChange={(event) => onChange((current) => ({ ...current, email: event.target.value }))}
-          />
-        </label>
-        <div className="form-row">
+        {isSignup ? (
+          <>
+            <label>
+              Full name
+              <input
+                value={form.name}
+                onChange={(event) => onChange((current) => ({ ...current, name: event.target.value }))}
+              />
+            </label>
+            <div className="form-row">
+              <label>
+                Username
+                <input
+                  value={form.username}
+                  onChange={(event) =>
+                    onChange((current) => ({ ...current, username: event.target.value }))
+                  }
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => onChange((current) => ({ ...current, email: event.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                Phone
+                <input
+                  value={form.phone}
+                  onChange={(event) => onChange((current) => ({ ...current, phone: event.target.value }))}
+                />
+              </label>
+              <label>
+                Preferred area
+                <select
+                  value={form.preferredArea}
+                  onChange={(event) =>
+                    onChange((current) => ({ ...current, preferredArea: event.target.value }))
+                  }
+                >
+                  <option>CCD</option>
+                  <option>Bole</option>
+                  <option>CMC</option>
+                </select>
+              </label>
+            </div>
+          </>
+        ) : (
           <label>
-            Phone
+            Username or email
             <input
-              value={form.phone}
-              onChange={(event) => onChange((current) => ({ ...current, phone: event.target.value }))}
+              value={form.username}
+              onChange={(event) => onChange((current) => ({ ...current, username: event.target.value }))}
             />
           </label>
+        )}
+        <div className="form-row">
           <label>
-            Preferred area
-            <select
-              value={form.preferredArea}
-              onChange={(event) =>
-                onChange((current) => ({ ...current, preferredArea: event.target.value }))
-              }
-            >
-              <option>CCD</option>
-              <option>Bole</option>
-              <option>CMC</option>
-            </select>
+            Password
+            <input
+              type="password"
+              value={form.password}
+              onChange={(event) => onChange((current) => ({ ...current, password: event.target.value }))}
+            />
           </label>
+          {isSignup ? (
+            <label>
+              Confirm password
+              <input
+                type="password"
+                value={form.confirmPassword}
+                onChange={(event) =>
+                  onChange((current) => ({ ...current, confirmPassword: event.target.value }))
+                }
+              />
+            </label>
+          ) : null}
         </div>
         {error ? <p className="form-error">{error}</p> : null}
         <div className="dialog-actions">
@@ -1675,6 +1735,10 @@ function ContactPage({
             />
           </label>
           <label>
+            Username
+            <input value={profile.username} readOnly />
+          </label>
+          <label>
             Email
             <input
               value={profile.email}
@@ -1878,17 +1942,21 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [authDialogOpen, setAuthDialogOpen] = useState(Boolean(initialRoute.authMode))
   const [authMode, setAuthMode] = useState<AuthMode>(initialRoute.authMode ?? 'signup')
-  const [authForm, setAuthForm] = useState<Profile>({
+  const [authForm, setAuthForm] = useState<AuthForm>({
     name: '',
+    username: '',
     email: '',
     phone: '+251 ',
     preferredArea: 'Bole',
+    password: '',
+    confirmPassword: '',
   })
   const [authError, setAuthError] = useState('')
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
   const [profile, setProfile] = useState<Profile>({
     name: 'Guest User',
+    username: 'guest',
     email: 'guest@example.com',
     phone: '+251 900 000 000',
     preferredArea: 'Bole',
@@ -1989,12 +2057,18 @@ function App() {
       setApiMessage('Contact saved in demo state')
       return null
     }
+    if (!profileUserId) {
+      setApiStatus('error')
+      setApiMessage('Please sign in before saving contact changes')
+      openAuthDialog('signin')
+      return null
+    }
 
     setApiStatus('loading')
     setApiMessage('Saving contact to Postgres...')
     try {
-      const user = await apiRequest<Profile & { id: number }>('/users', {
-        method: 'POST',
+      const user = await apiRequest<ApiUser>(`/users/${profileUserId}`, {
+        method: 'PUT',
         body: JSON.stringify({
           name: profile.name,
           email: profile.email,
@@ -2016,6 +2090,11 @@ function App() {
   const saveManagedProperty = async (property: Property, editingId: number | null) => {
     if (dataMode === 'postgres') {
       const userId = profileUserId ?? (await saveProfile())
+      if (!userId) {
+        setApiStatus('error')
+        setApiMessage('Sign in before adding a property to Postgres')
+        return
+      }
       const payload = {
         ...property,
         id: editingId ?? property.id,
@@ -2139,7 +2218,11 @@ function App() {
 
   const openAuthDialog = (mode: AuthMode = 'signup') => {
     setAuthMode(mode)
-    setAuthForm(profile)
+    setAuthForm({
+      ...profile,
+      password: '',
+      confirmPassword: '',
+    })
     setAuthError('')
     setAuthDialogOpen(true)
     pushPath(mode === 'signin' ? '/login' : '/signup')
@@ -2152,24 +2235,59 @@ function App() {
   }
 
   const submitAuth = async () => {
-    if (!authForm.name.trim() || !authForm.email.trim()) {
-      setAuthError('Name and email are required.')
+    if (authMode === 'signup' && (!authForm.name.trim() || !authForm.username.trim() || !authForm.email.trim())) {
+      setAuthError('Name, username, and email are required.')
+      return
+    }
+    if (authMode === 'signin' && !authForm.username.trim()) {
+      setAuthError('Username or email is required.')
+      return
+    }
+    if (!authForm.password) {
+      setAuthError('Password is required.')
+      return
+    }
+    if (authMode === 'signup' && authForm.password !== authForm.confirmPassword) {
+      setAuthError('Passwords do not match.')
       return
     }
 
     setIsAuthSubmitting(true)
     setAuthError('')
     try {
-      setProfile(authForm)
+      const authPayload =
+        authMode === 'signup'
+          ? authForm
+          : {
+              username: authForm.username,
+              password: authForm.password,
+            }
       if (dataMode === 'postgres') {
-        const user = await apiRequest<Profile & { id: number }>('/users', {
-          method: 'POST',
-          body: JSON.stringify(authForm),
+        const result = await apiRequest<{ user: ApiUser }>(
+          authMode === 'signup' ? '/auth/signup' : '/auth/signin',
+          {
+            method: 'POST',
+            body: JSON.stringify(authPayload),
+          },
+        )
+        setProfile({
+          name: result.user.name,
+          username: result.user.username,
+          email: result.user.email,
+          phone: result.user.phone ?? '',
+          preferredArea: result.user.preferredArea ?? 'Bole',
         })
-        setProfileUserId(user.id)
+        setProfileUserId(result.user.id)
         setApiStatus('connected')
         setApiMessage(`${authMode === 'signup' ? 'Profile created' : 'Signed in'} with Postgres`)
       } else {
+        setProfile({
+          name: authForm.name || 'Demo User',
+          username: authForm.username || 'demo',
+          email: authForm.email || 'demo@example.com',
+          phone: authForm.phone,
+          preferredArea: authForm.preferredArea,
+        })
         setApiMessage(`${authMode === 'signup' ? 'Profile created' : 'Signed in'} for demo mode`)
       }
       setIsSignedIn(true)
@@ -2178,9 +2296,9 @@ function App() {
       setSelectedPropertyId(null)
       pushPath('/properties')
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : 'Could not save profile.')
+      setAuthError(error instanceof Error ? error.message : 'Could not sign in.')
       setApiStatus('error')
-      setApiMessage(error instanceof Error ? error.message : 'Could not save profile')
+      setApiMessage(error instanceof Error ? error.message : 'Could not sign in')
     } finally {
       setIsAuthSubmitting(false)
     }
